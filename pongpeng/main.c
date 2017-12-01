@@ -90,7 +90,7 @@ void startGame(){
 void updatePixel(int x, int y){
 	int row = 0;
 	if(y>0) {
-		row = y / 128;
+		row = y / 8;
 	}
 	// the OR-masking gives us access to the bit in our column of size 8, that we want to turn on.
 	screen[row * 128 + x] |= 1 << (y - row * 8);
@@ -186,14 +186,14 @@ void updateScreen(uint8_t screen[]) {
 }
 
 void drawToScreen(){
-	//resetScreen();
+	resetScreen();
 	drawPlayer(player1);
 	drawPlayer(player2);
 	drawBall(ball);
 	updateScreen(screen);
 }
 
-int main(void) {
+void spi_init(){
 	/* Set up peripheral bus clock */
 	OSCCON &= ~0x180000;
 	OSCCON |= 0x080000;
@@ -227,21 +227,22 @@ int main(void) {
 
 	/* Turn on SPI */
 	SPI2CONSET = 0x8000;
-/*
-	display_init();
-	display_string(0, "such world");
-	display_string(1, "much hello");
-	display_string(2, "many text");
-	display_string(3, "wow");
-	display_update();
+}
 
-	display_image(96, icon);
-*/
-
+int main(void) {
+	spi_init();
 	display_init();
 	startGame();
-	drawToScreen();
-	updateScreen(screen);
+
+	while(1){
+		int i;
+		for(i = 0; i<100000; i++){
+			
+		}
+		tick();
+		drawToScreen();
+	}
+	
 
 
 
