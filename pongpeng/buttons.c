@@ -10,9 +10,9 @@ int getbtns( void ){
 
 
 int buttonOne(){
-  int btns = getbtns();
+  int btn = PORTF;
 
-  if(btns & 0x1){
+  if(btn & 0x2){
     return 1;
   }
   else return 0;
