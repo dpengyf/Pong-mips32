@@ -186,7 +186,7 @@ void updateScreen(uint8_t screen[]) {
 }
 
 void drawToScreen(){
-	resetScreen();
+	//resetScreen();
 	drawPlayer(player1);
 	drawPlayer(player2);
 	drawBall(ball);
@@ -238,9 +238,11 @@ int main(void) {
 	display_image(96, icon);
 */
 
-	startGame();
 	display_init();
-	
+	startGame();
+	drawToScreen();
+	updateScreen(screen);
+
 
 
 	for(;;) ;
