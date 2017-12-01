@@ -1,5 +1,6 @@
 #include <pic32mx.h>
 #include <stdint.h>
+#include "resources.h"
 
 #define DISPLAY_VDD PORTFbits.RF6
 #define DISPLAY_VBATT PORTFbits.RF5
@@ -18,11 +19,13 @@
 
 #define MAX_X               127
 #define MAX_Y               31
-#define PADDLE_HEIGHT       8
-#define PADDE_WIDTH					2
+#define PLAYER_HEIGHT       8
+#define PLAYER_WIDTH		2
+#define BALL_HEIGHT			2
+#define BALL_WIDTH			2
 
 
-
+uint8_t screen[128 * 4] = {0};
 
 char textbuffer[4][16];
 
@@ -38,12 +41,9 @@ typedef struct Ball {
 Ball ball;
 Player player1,player2;
 
-//initialize the screen as all white;
-uint8_t screen[128][4] = {0};
 
 
-
-void moveBall() {
+void tick() {
 	ball.x += ball.speedX;
 	ball.y += ball.speedY;
 
@@ -84,11 +84,45 @@ void startGame(){
 	player2.y = 14;
 }
 
-//we update a pixel into SPI format, so it can light up
-void updateDisplay(int x, int y){
-
+//we update a pixel into SPI format, so it can light up. 
+//We have 4 rows (0,1,2,3), that consist of columns of 8 bits (8*4 = 32 = screen height)
+//we have 128 of these columns
+void updatePixel(int x, int y){
+	int row = 0;
+	if(y>0) {
+		row = y / 128;
+	}
+	// the OR-masking gives us access to the bit in our column of size 8, that we want to turn on.
+	screen[row * 128 + x] |= 1 << (y - row * 8);
 }
 
+//draw out the player
+void drawPlayer(Player p) {
+	int i, j;
+	//For the width
+	for (i = 0; i < PLAYER_WIDTH; i++){
+		//for the height
+		for (j = 0; j < PLAYER_HEIGHT; j++){
+			updatePixel(p.x + i, p.y + j);
+		}
+	}
+}
+
+void drawBall(Ball b) {
+	int i, j;
+	for (i = 0; i < BALL_WIDTH; i++){
+		for (j = 0; j < BALL_HEIGHT; j++){
+			updatePixel(b.x + i, b.y + j);
+		}
+	}
+}
+
+void resetScreen(){
+	int i;
+	for(i = 0; i< (128*4); i++){
+		screen[i] = 0;
+	}
+}
 
 void delay(int cyc) {
 	int i;
@@ -132,75 +166,31 @@ void display_init() {
 	spi_send_recv(0xAF);
 }
 
-void display_string(int line, char *s) {
-	int i;
-	if(line < 0 || line >= 4)
-		return;
-	if(!s)
-		return;
-
-	for(i = 0; i < 16; i++)
-		if(*s) {
-			textbuffer[line][i] = *s;
-			s++;
-		} else
-			textbuffer[line][i] = ' ';
-}
-
-void display_image(int x, const uint8_t *data) {
+void updateScreen(uint8_t screen[]) {
 	int i, j;
+	for (i = 0; i < 4; i++){
 
-	for(i = 0; i < 4; i++) {
 		DISPLAY_COMMAND_DATA_PORT &= ~DISPLAY_COMMAND_DATA_MASK;
-		spi_send_recv(0x22);
-		spi_send_recv(i);
+        spi_send_recv(0x22);
+        spi_send_recv(i);
 
-		spi_send_recv(x & 0xF);
-		spi_send_recv(0x10 | ((x >> 4) & 0xF));
+        spi_send_recv(0 & 0xF);
+        spi_send_recv(0x10 | ((0 >> 4) & 0xF));
 
-		DISPLAY_COMMAND_DATA_PORT |= DISPLAY_COMMAND_DATA_MASK;
+        DISPLAY_COMMAND_DATA_PORT |= DISPLAY_COMMAND_DATA_MASK;
 
-		for(j = 0; j < 32; j++)
-			spi_send_recv(~data[i*32 + j]);
-	}
-}
-
-
-void draw(int x, int y) {
-    int offset = 0;
-    if (y > 0) { offset = y / 8; }
-    game[offset * 128 + x] |= 1 << (y - offset * 8);
-}
-
-
-void display_ball(Ball ball) {
-	for (i = 0; i < count; i++) {
-
-	}
-}
-
-void display_update() {
-	int i, j, k;
-	int c;
-	for(i = 0; i < 4; i++) {
-		DISPLAY_COMMAND_DATA_PORT &= ~DISPLAY_COMMAND_DATA_MASK;
-		spi_send_recv(0x22);
-		spi_send_recv(i);
-
-		spi_send_recv(0x0);
-		spi_send_recv(0x10);
-
-		DISPLAY_COMMAND_DATA_PORT |= DISPLAY_COMMAND_DATA_MASK;
-
-		for(j = 0; j < 16; j++) {
-			c = textbuffer[i][j];
-			if(c & 0x80)
-				continue;
-
-			for(k = 0; k < 8; k++)
-				spi_send_recv(font[c*8 + k]);
+		for(j = 0; j < 128; j++){
+			spi_send_recv(screen[i*128 + j]);
 		}
 	}
+}
+
+void drawToScreen(){
+	resetScreen();
+	drawPlayer(player1);
+	drawPlayer(player2);
+	drawBall(ball);
+	updateScreen(screen);
 }
 
 int main(void) {
@@ -237,7 +227,7 @@ int main(void) {
 
 	/* Turn on SPI */
 	SPI2CONSET = 0x8000;
-
+/*
 	display_init();
 	display_string(0, "such world");
 	display_string(1, "much hello");
@@ -246,6 +236,12 @@ int main(void) {
 	display_update();
 
 	display_image(96, icon);
+*/
+
+	startGame();
+	display_init();
+	
+
 
 	for(;;) ;
 	return 0;

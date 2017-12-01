@@ -1,0 +1,2 @@
+resources.c.o: resources.c
+resources.c :
