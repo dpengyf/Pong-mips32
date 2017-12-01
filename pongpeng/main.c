@@ -1,6 +1,6 @@
 #include <pic32mx.h>
 #include <stdint.h>
-#include "resources.h"
+#include "buttons.h"
 
 #define DISPLAY_VDD PORTFbits.RF6
 #define DISPLAY_VBATT PORTFbits.RF5
@@ -41,7 +41,36 @@ typedef struct Ball {
 Ball ball;
 Player player1,player2;
 
-
+void movePlayer(){
+	if (buttonOne()){
+		player2.speedY = -1;
+	}
+	if (buttonTwo()){
+		player2.speedY = 1;
+	}
+	if (buttonThree()) {
+		player1.speedY = 1;
+	}
+	if (buttonFour()) {
+		player1.speedY = -1;
+	}
+	if(player1.y < 0){
+		player1.y = 0;
+	}
+	if(player1.y > MAX_Y - 8){
+		player1.y = MAX_Y - 8;
+	}
+	if(player2.y < 0){
+		player2.y = 0;
+	}
+	if(player2.y > MAX_Y - 8){
+		player2.y = MAX_Y - 8;
+	}
+	player1.y += player1.speedY;
+	player2.y += player2.speedY;
+	player1.speedY = 0;
+	player2.speedY = 0;
+}
 
 void tick() {
 	ball.x += ball.speedX;
@@ -68,20 +97,24 @@ void tick() {
         ball.x = MAX_X;
         ball.speedX *= (-1);
     }
+
+	movePlayer();
 }
 
 
 void startGame(){
 	ball.x = 64;
 	ball.y = 16;
-	ball.speedX = 1;
+	ball.speedX = 2;
 	ball.speedY = 1;
 
 	player1.x = 0;
 	player1.y = 14;
+	player1.speedY = 0;
 
 	player2.x = 126;
 	player2.y = 14;
+	player2.speedY = 0;
 }
 
 //we update a pixel into SPI format, so it can light up. 
@@ -116,6 +149,8 @@ void drawBall(Ball b) {
 		}
 	}
 }
+
+
 
 void resetScreen(){
 	int i;
@@ -240,6 +275,7 @@ int main(void) {
 			
 		}
 		tick();
+
 		drawToScreen();
 	}
 	
