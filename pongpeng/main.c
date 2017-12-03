@@ -25,23 +25,34 @@
 #define BALL_WIDTH			2
 
 
+// The display is divided into 4 pages with 128 columns each
+// where each column consists of 8 vertical pixels.
 uint8_t screen[128 * 4] = {0};
 
 char textbuffer[4][16];
 
+// The player(s) have a x and y coordinate
+// as well as speed along the Y-axis.
 typedef struct Player {
 	int x, y, speedY;
 }Player;
 
+// The ball has a x and y coordinate
+// it has speed along both the X- and Y-axis.
 typedef struct Ball {
 	int x, y, speedX, speedY;
 }Ball;
 
-
 Ball ball;
 Player player1,player2;
 
+// Player logic
 void movePlayer(){
+	player1.y += player1.speedY;
+	player2.y += player2.speedY;
+	player1.speedY = 0;
+	player2.speedY = 0;
+
 	if (buttonOne()){
 		player2.speedY = -1;
 	}
@@ -66,42 +77,39 @@ void movePlayer(){
 	if(player2.y > MAX_Y - 8){
 		player2.y = MAX_Y - 8;
 	}
-	player1.y += player1.speedY;
-	player2.y += player2.speedY;
-	player1.speedY = 0;
-	player2.speedY = 0;
 }
 
-void tick() {
+// Ball logic
+void moveBall(){
 	ball.x += ball.speedX;
 	ball.y += ball.speedY;
 
 	// check if ball is on the bottom of the screen
-    if (ball.y <= 0) {
-        ball.y = 0;
-        ball.speedY *= (-1);
-    }
-		//top of screen
-		else if (ball.y >= MAX_Y) {
-        ball.y = MAX_Y;
-        ball.speedY *= (-1);
-    }
+	if (ball.y <= 0) {
+		ball.speedY *= (-1);
+	}
+	//top of screen
+	else if (ball.y >= MAX_Y - BALL_HEIGHT) {
+		ball.speedY *= (-1);
+	}
 
-		//if ball is on the far left side of the screen
-		if (ball.x <= 0) {
-        ball.x = 0;
-        ball.speedX *= (-1);
-    }
-		//if ball is on the right side of the screen
-		else if (ball.x >= MAX_X) {
-        ball.x = MAX_X;
-        ball.speedX *= (-1);
-    }
+	//if ball is on the far left side of the screen
+	if (ball.x <= 0) {
+		ball.speedX *= (-1);
+	}
+	//if ball is on the right side of the screen
+	else if (ball.x >= MAX_X - BALL_WIDTH) {
+		ball.speedX *= (-1);
+	}
+}
 
+void tick() {
+	moveBall();
 	movePlayer();
 }
 
 
+// Starting values
 void startGame(){
 	ball.x = 64;
 	ball.y = 16;
@@ -117,7 +125,7 @@ void startGame(){
 	player2.speedY = 0;
 }
 
-//we update a pixel into SPI format, so it can light up. 
+//we update a pixel into SPI format, so it can light up.
 //We have 4 rows (0,1,2,3), that consist of columns of 8 bits (8*4 = 32 = screen height)
 //we have 128 of these columns
 void updatePixel(int x, int y){
@@ -149,7 +157,6 @@ void drawBall(Ball b) {
 		}
 	}
 }
-
 
 
 void resetScreen(){
@@ -272,13 +279,13 @@ int main(void) {
 	while(1){
 		int i;
 		for(i = 0; i<100000; i++){
-			
+
 		}
 		tick();
 
 		drawToScreen();
 	}
-	
+
 
 
 
