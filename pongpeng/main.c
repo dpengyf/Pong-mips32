@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include "buttons.h"
 
+
 #define DISPLAY_VDD PORTFbits.RF6
 #define DISPLAY_VBATT PORTFbits.RF5
 #define DISPLAY_COMMAND_DATA PORTFbits.RF4
@@ -20,10 +21,11 @@
 #define MAX_X               127
 #define MAX_Y               31
 #define PLAYER_HEIGHT       8
-#define PLAYER_WIDTH		2
-#define BALL_HEIGHT			2
-#define BALL_WIDTH			2
+#define PLAYER_WIDTH				2
+#define BALL_HEIGHT					2
+#define BALL_WIDTH					2
 
+int score = 0;
 
 // The display is divided into 4 pages with 128 columns each
 // where each column consists of 8 vertical pixels.
@@ -31,14 +33,10 @@ uint8_t screen[128 * 4] = {0};
 
 char textbuffer[4][16];
 
-// The player(s) have a x and y coordinate
-// as well as speed along the Y-axis.
 typedef struct Player {
 	int x, y, speedY;
 }Player;
 
-// The ball has a x and y coordinate
-// it has speed along both the X- and Y-axis.
 typedef struct Ball {
 	int x, y, speedX, speedY;
 }Ball;
@@ -53,34 +51,39 @@ void movePlayer(){
 	player1.speedY = 0;
 	player2.speedY = 0;
 
+	// Player2 up
 	if (buttonOne()){
 		player2.speedY = -1;
 	}
+	// Player2 down
 	if (buttonTwo()){
 		player2.speedY = 1;
 	}
+	//Player1 down
 	if (buttonThree()) {
 		player1.speedY = 1;
 	}
+	//Player1 up
 	if (buttonFour()) {
 		player1.speedY = -1;
 	}
 	if(player1.y < 0){
 		player1.y = 0;
 	}
-	if(player1.y > MAX_Y - 8){
-		player1.y = MAX_Y - 8;
+	if(player1.y > MAX_Y - PLAYER_HEIGHT){
+		player1.y = MAX_Y - PLAYER_HEIGHT;
 	}
 	if(player2.y < 0){
 		player2.y = 0;
 	}
-	if(player2.y > MAX_Y - 8){
-		player2.y = MAX_Y - 8;
+	if(player2.y > MAX_Y - PLAYER_HEIGHT){
+		player2.y = MAX_Y - PLAYER_HEIGHT;
 	}
 }
 
 // Ball logic
 void moveBall(){
+
 	ball.x += ball.speedX;
 	ball.y += ball.speedY;
 
@@ -96,10 +99,12 @@ void moveBall(){
 	//if ball is on the far left side of the screen
 	if (ball.x <= 0) {
 		ball.speedX *= (-1);
+		score++;
 	}
 	//if ball is on the right side of the screen
 	else if (ball.x >= MAX_X - BALL_WIDTH) {
 		ball.speedX *= (-1);
+		score++;
 	}
 }
 
@@ -137,21 +142,24 @@ void updatePixel(int x, int y){
 	screen[row * 128 + x] |= 1 << (y - row * 8);
 }
 
-//draw out the player
+// Draw player
 void drawPlayer(Player p) {
 	int i, j;
-	//For the width
+	// Draw player width
 	for (i = 0; i < PLAYER_WIDTH; i++){
-		//for the height
+		// Draw player height
 		for (j = 0; j < PLAYER_HEIGHT; j++){
 			updatePixel(p.x + i, p.y + j);
 		}
 	}
 }
 
+//Draw Ball
 void drawBall(Ball b) {
 	int i, j;
+	//Draw Ball width
 	for (i = 0; i < BALL_WIDTH; i++){
+		//Draw Ball height
 		for (j = 0; j < BALL_HEIGHT; j++){
 			updatePixel(b.x + i, b.y + j);
 		}
@@ -213,16 +221,16 @@ void updateScreen(uint8_t screen[]) {
 	for (i = 0; i < 4; i++){
 
 		DISPLAY_COMMAND_DATA_PORT &= ~DISPLAY_COMMAND_DATA_MASK;
-        spi_send_recv(0x22);
-        spi_send_recv(i);
+    spi_send_recv(0x22);
+    spi_send_recv(i);
 
-        spi_send_recv(0 & 0xF);
-        spi_send_recv(0x10 | ((0 >> 4) & 0xF));
+    spi_send_recv(0 & 0xF);
+    spi_send_recv(0x10 | ((0 >> 4) & 0xF));
 
-        DISPLAY_COMMAND_DATA_PORT |= DISPLAY_COMMAND_DATA_MASK;
+    DISPLAY_COMMAND_DATA_PORT |= DISPLAY_COMMAND_DATA_MASK;
 
 		for(j = 0; j < 128; j++){
-			spi_send_recv(screen[i*128 + j]);
+			spi_send_recv(screen[i * 128 + j]);
 		}
 	}
 }
@@ -265,7 +273,7 @@ void spi_init(){
 	/* Clear SPIROV*/
 	SPI2STATCLR &= ~0x40;
 	/* Set CKP = 1, MSTEN = 1; */
-        SPI2CON |= 0x60;
+  SPI2CON |= 0x60;
 
 	/* Turn on SPI */
 	SPI2CONSET = 0x8000;
@@ -276,17 +284,12 @@ int main(void) {
 	display_init();
 	startGame();
 
+
 	while(1){
-		int i;
-		for(i = 0; i<100000; i++){
-
-		}
+		delay(100000);
 		tick();
-
 		drawToScreen();
 	}
-
-
 
 
 	for(;;) ;

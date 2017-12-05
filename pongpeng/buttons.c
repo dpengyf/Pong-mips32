@@ -1,6 +1,6 @@
 #include <stdint.h>
 #include <pic32mx.h>
-#include "buttons.h"
+
 
 int getbtns( void ){
   int btn = PORTD >> 5;
@@ -44,6 +44,3 @@ int buttonFour(){
   }
   else return 0;
 }
-
-
-
