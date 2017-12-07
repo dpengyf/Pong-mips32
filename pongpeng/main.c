@@ -1,3 +1,5 @@
+// make install TTYDEV=/dev/tty.usbserial-AJV9K343
+
 #include <pic32mx.h>
 #include <stdint.h>
 #include "buttons.h"
