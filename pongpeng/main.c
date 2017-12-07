@@ -2,8 +2,10 @@
 
 #include <pic32mx.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include "buttons.h"
 
+#define ITOA_BUFSIZ ( 24 )
 
 #define DISPLAY_VDD PORTFbits.RF6
 #define DISPLAY_VBATT PORTFbits.RF5
@@ -27,12 +29,51 @@
 #define BALL_HEIGHT					1
 #define BALL_WIDTH					1
 
+char * itoaconv( int num )
+{
+  register int i, sign;
+  static char itoa_buffer[ ITOA_BUFSIZ ];
+  static const char maxneg[] = "-2147483648";
+
+  itoa_buffer[ ITOA_BUFSIZ - 1 ] = 0;   /* Insert the end-of-string marker. */
+  sign = num;                           /* Save sign. */
+  if( num < 0 && num - 1 > 0 )          /* Check for most negative integer */
+  {
+    for( i = 0; i < sizeof( maxneg ); i += 1 )
+    itoa_buffer[ i + 1 ] = maxneg[ i ];
+    i = 0;
+  }
+  else
+  {
+    if( num < 0 ) num = -num;           /* Make number positive. */
+    i = ITOA_BUFSIZ - 2;                /* Location for first ASCII digit. */
+    do {
+      itoa_buffer[ i ] = num % 10 + '0';/* Insert next digit. */
+      num = num / 10;                   /* Remove digit from number. */
+      i -= 1;                           /* Move index to next empty position. */
+    } while( num > 0 );
+    if( sign < 0 )
+    {
+      itoa_buffer[ i ] = '-';
+      i -= 1;
+    }
+  }
+  /* Since the loop always sets the index i to the next empty position,
+   * we must add 1 in order to return a pointer to the first occupied position. */
+  return( &itoa_buffer[ i + 1 ] );
+}
+
+int gameState = 1;
+
 int score = 0;
 int highScore = 0;
 
 // The display is divided into 4 pages with 128 columns each
 // where each column consists of 8 vertical pixels.
 uint8_t screen[128 * 4] = {0};
+
+// For menu state
+char textbuffer[4][16];
 
 char scoreArr[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
 
@@ -167,7 +208,6 @@ static const uint8_t const font[] = {
 	0, 120, 68, 66, 68, 120, 0, 0,
 };
 
-
 typedef struct Player {
 	int x, y, speedY;
 }Player;
@@ -178,6 +218,11 @@ typedef struct Ball {
 
 Ball ball;
 Player player1,player2;
+
+void delay(int cyc) {
+	int i;
+	for(i = cyc; i > 0; i--);
+};
 
 // Player logic
 void movePlayer(){
@@ -216,6 +261,22 @@ void movePlayer(){
 	}
 }
 
+void menuButtons(){
+	delay(1000000);
+	if (buttonOne()){
+		gameState = 0;
+	}
+	if (buttonTwo()){
+		gameState = 2;
+	}
+}
+
+highScoreButton(){
+	if (buttonOne()){
+		gameState = 1;
+	}
+}
+
 // Ball logic
 void moveBall(){
 
@@ -235,22 +296,49 @@ void moveBall(){
 	if (ball.x <= 0) {
 		ball.speedX *= (-1);
 	}
-	
+
 	//if ball is on the right side of the screen
 	else if (ball.x >= MAX_X - BALL_WIDTH) {
 		ball.speedX *= (-1);
 	}
 }
 
+// Detects whether the ball has collided with the player or not.
+void detectCollision(){
+	// Ball collides with player1.
+	if (ball.x <= player1.x){
+		if(ball.y >= player1.y && ball.y <= player1.y + PLAYER_HEIGHT){
+			score++;
+		}
+	}
+	// Ball collides with player2.
+	if (ball.x >= player2.x){
+		if(ball.y >= player2.y && ball.y <= player2.y + PLAYER_HEIGHT){
+			score++;
+		}
+	}
+	// Ball misses player1.
+	if (ball.x <= player1.x && (ball.y < player1.y || ball.y > player1.y + PLAYER_HEIGHT)){
+		delay(5000000);
+		gameState = 1;
+	}
+	//Ball misses player2.
+	if (ball.x >= player2.x && (ball.y < player2.y || ball.y > player2.y + PLAYER_HEIGHT)){
+		delay(5000000);
+		gameState = 1;
+	}
+}
+
 void tick() {
 	moveBall();
 	movePlayer();
+	detectCollision();
 }
 
 
 // Starting values
 void startGame(){
-	ball.x = 64;
+	ball.x = 2;
 	ball.y = 16;
 	ball.speedX = 2;
 	ball.speedY = 1;
@@ -300,7 +388,6 @@ void drawBall(Ball b) {
 	}
 }
 
-
 void resetScreen(){
 	int i;
 	for(i = 0; i< (128*4); i++){
@@ -308,10 +395,12 @@ void resetScreen(){
 	}
 }
 
-void delay(int cyc) {
+void resetMenu(){
 	int i;
-	for(i = cyc; i > 0; i--);
-};
+	for (i = 0; i< (128*4); i++){
+		screen[i] = 0;
+	}
+}
 
 uint8_t spi_send_recv(uint8_t data) {
 	while(!(SPI2STAT & 0x08));
@@ -319,6 +408,45 @@ uint8_t spi_send_recv(uint8_t data) {
 	while(!(SPI2STAT & 0x01));
 	return SPI2BUF;
 };
+
+void display_string(int line, char *s) {
+	int i;
+	if(line < 0 || line >= 4)
+		return;
+	if(!s)
+		return;
+
+	for(i = 0; i < 16; i++)
+		if(*s) {
+			textbuffer[line][i] = *s;
+			s++;
+		} else
+			textbuffer[line][i] = ' ';
+}
+
+void menu_update() {
+	int i, j, k;
+	int c;
+	for(i = 0; i < 4; i++) {
+		DISPLAY_COMMAND_DATA_PORT &= ~DISPLAY_COMMAND_DATA_MASK;
+		spi_send_recv(0x22);
+		spi_send_recv(i);
+
+		spi_send_recv(0x0);
+		spi_send_recv(0x10);
+
+		DISPLAY_COMMAND_DATA_PORT |= DISPLAY_COMMAND_DATA_MASK;
+
+		for(j = 0; j < 16; j++) {
+			c = textbuffer[i][j];
+			if(c & 0x80)
+				continue;
+
+			for(k = 0; k < 8; k++)
+				spi_send_recv(font[c*8 + k]);
+		}
+	}
+}
 
 void display_init() {
 	DISPLAY_COMMAND_DATA_PORT &= ~DISPLAY_COMMAND_DATA_MASK;
@@ -351,7 +479,7 @@ void display_init() {
 }
 
 void updateScreen(uint8_t screen[]) {
-	int i, j, k, l;
+	int i, j;
 	int c;
 	for (i = 0; i < 4; i++){
 
@@ -384,15 +512,36 @@ void display_score() {
 	for(j = 0; j < 8; j++) {
 		screen[x1 + j] = font[k * 8 + j];
 	}
+	if(score > highScore){
+		highScore = score;
+	}
 }
 
-void drawToScreen(){
+void gameToScreen(){
 	resetScreen();
 	drawPlayer(player1);
 	drawPlayer(player2);
 	drawBall(ball);
 	display_score();
 	updateScreen(screen);
+}
+
+void menuToScreen(){
+	score = 0;
+	startGame();
+	menuButtons();
+	display_string(0, "MENU");
+	display_string(1, "BTN1 - Game");
+	display_string(2, "BTN2 - HighS");
+	menu_update();
+}
+
+void highScoreToScreen(){
+	highScoreButton();
+	display_string(0, "Highscore:");
+	display_string(1, itoaconv(highScore));
+	display_string(2, "BTN1 - Menu");
+	menu_update();
 }
 
 void spi_init(){
@@ -436,10 +585,19 @@ int main(void) {
 	display_init();
 	startGame();
 
+
 	while(1){
-		delay(100000);
+		delay(140000);
 		tick();
-		drawToScreen();
+		if(gameState == 0){
+			gameToScreen();
+		}
+		if(gameState == 1){
+			menuToScreen();
+		}
+		if(gameState == 2){
+			highScoreToScreen();
+		}
 	}
 
 	for(;;) ;
