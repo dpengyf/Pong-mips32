@@ -1,11 +1,17 @@
 // make install TTYDEV=/dev/tty.usbserial-AJV9K343
 
+/**
+	@authors: Axel Meurling & Daniel peng
+	Project description:
+	A game of 2 player Pong on a ChipKit32 with a Basic I/O Shield.
+	The 2 players are cooperating to get the highest score possible.
+	The score is saved to a highscore list valid for the current session.
+*/
+
 #include <pic32mx.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include "buttons.h"
-
-#define ITOA_BUFSIZ ( 24 )
 
 #define DISPLAY_VDD PORTFbits.RF6
 #define DISPLAY_VBATT PORTFbits.RF5
@@ -29,6 +35,9 @@
 #define BALL_HEIGHT					1
 #define BALL_WIDTH					1
 
+// Converts integers to array of characters.
+// Courtsey to Lab3 ´time4ints´ for this method.
+#define ITOA_BUFSIZ ( 24 )
 char * itoaconv( int num )
 {
   register int i, sign;
@@ -63,6 +72,7 @@ char * itoaconv( int num )
   return( &itoa_buffer[ i + 1 ] );
 }
 
+// menu game state.
 int gameState = 1;
 
 int score = 0;
@@ -239,23 +249,27 @@ void movePlayer(){
 	if (buttonTwo()){
 		player2.speedY = 1;
 	}
-	//Player1 down
+	// Player1 down
 	if (buttonThree()) {
 		player1.speedY = 1;
 	}
-	//Player1 up
+	// Player1 up
 	if (buttonFour()) {
 		player1.speedY = -1;
 	}
+	// Makes sure player1 stays within the boundry
 	if(player1.y < 0){
 		player1.y = 0;
 	}
+	// Makes sure player1 stays within the boundry
 	if(player1.y > MAX_Y - PLAYER_HEIGHT){
 		player1.y = MAX_Y - PLAYER_HEIGHT;
 	}
+	// Makes sure player2 stays within the boundry
 	if(player2.y < 0){
 		player2.y = 0;
 	}
+	// Makes sure player2 stays within the boundry
 	if(player2.y > MAX_Y - PLAYER_HEIGHT){
 		player2.y = MAX_Y - PLAYER_HEIGHT;
 	}
@@ -352,16 +366,16 @@ void startGame(){
 	player2.speedY = 0;
 }
 
-//we update a pixel into SPI format, so it can light up.
-//We have 4 rows (0,1,2,3), that consist of columns of 8 bits (8*4 = 32 = screen height)
-//we have 128 of these columns
+// Converts coordinate into SPI format so it can light up.
+// There are 4 rows (0,1,2,3), that consist of columns of 8 bits
+// So we have a 4*128 matrix
 void updatePixel(int x, int y){
 	int row = 0;
 	if(y>0) {
 		row = y / 8;
 	}
-	// the OR-masking gives us access to the bit in our column of size 8, that we want to turn on.
-	screen[row * 128 + x] |= 1 << (y - row * 8);
+	// The OR-masking allows access to the bit in the column of size 8 and turns it on.
+	screen[row * 128 + x] |= 1 << (y % 8);
 }
 
 // Draw player
@@ -388,16 +402,10 @@ void drawBall(Ball b) {
 	}
 }
 
+// Makes sure there are no trailing pixels on the screen.
 void resetScreen(){
 	int i;
 	for(i = 0; i< (128*4); i++){
-		screen[i] = 0;
-	}
-}
-
-void resetMenu(){
-	int i;
-	for (i = 0; i< (128*4); i++){
 		screen[i] = 0;
 	}
 }
@@ -409,6 +417,8 @@ uint8_t spi_send_recv(uint8_t data) {
 	return SPI2BUF;
 };
 
+// Used for the menu and highscore
+// Courtesy to hello_display for this method.
 void display_string(int line, char *s) {
 	int i;
 	if(line < 0 || line >= 4)
@@ -498,6 +508,7 @@ void updateScreen(uint8_t screen[]) {
 	}
 }
 
+// Dsiplays the score on the top of the display.
 void display_score() {
 	int i, j, x, x1;
 	int ten = score / 10 ;
